@@ -1,61 +1,38 @@
 #!/usr/bin/env bash
-# bin/compile <build-dir> <cache-dir>
+# bin/compile <build-dir> <cache-dir> <env-dir>
+set -e
 
-set -e # fail fast
-
-# parse params
+# Parse params
 BUILD_DIR=$1
 CACHE_DIR=$2
-BUILDPACK_NAME=jemalloc
+ENV_DIR=$3
 
-function indent() {
-  c='s/^/       /'
-  case $(uname) in
-    Darwin) sed -l "$c";;
-    *)      sed -u "$c";;
-  esac
-}
+# Default version
+version="5.1.0"
 
-function vendor() {
-  binary="$1"
-  path="$2"
+# Read version from configured JEMALLOC_VERSION
+if [ -f $ENV_DIR/JEMALLOC_VERSION ]; then
+  version=$(cat $ENV_DIR/JEMALLOC_VERSION)
+fi
 
-  echo "Fetching $binary" | indent
-  mkdir -p $path
-  curl -sL $binary -s -o - | tar xz -C $path -f -
+url="https://github.com/mojodna/heroku-buildpack-jemalloc/releases/download/$STACK/jemalloc-$version.tar.bz2"
+dest="$BUILD_DIR/vendor/jemalloc"
 
-  [ -d "$path/bin" ] && export PATH=$path/bin:$PATH
-  export CPPPATH="$path/include:$CPPPATH"
-  export CPATH="$path/include:$CPATH"
-  export LIBRARY_PATH="$path/lib:$LIBRARY_PATH"
-  export LD_LIBRARY_PATH="$path/lib:$LD_LIBRARY_PATH"
-  [ -d "$path/lib/pkgconfig" ] && export PKG_CONFIG_PATH="$path/lib/pkgconfig:$PKG_CONFIG_PATH"
+echo "-----> Vendoring jemalloc $version"
+echo "       Fetching $url"
 
-  true
-}
-
-echo "-----> Vendoring binaries"
-vendor "https://github.com/mojodna/heroku-buildpack-jemalloc/releases/download/4.2.1/jemalloc-4.2.1-1.tar.gz" "$BUILD_DIR/vendor/jemalloc"
-
-echo "-----> Configuring build environment"
-
-cat <<EOF > export
-export PATH="$PATH:\$PATH"
-export LD_LIBRARY_PATH="\$LD_LIBRARY_PATH:$LD_LIBRARY_PATH"
-export LIBRARY_PATH="\$LIBRARY_PATH:$LIBRARY_PATH"
-export PKG_CONFIG_PATH="\$PKG_CONFIG_PATH:$PKG_CONFIG_PATH"
-export CPPPATH="\$CPPPATH:$CPPPATH"
-export CPATH="\$CPATH:$CPATH"
-EOF
+mkdir -p $dest
+curl -sL $url | tar -C $dest -xj
 
 echo "-----> Building runtime environment"
 mkdir -p $BUILD_DIR/.profile.d
 
-cat <<EOF > $BUILD_DIR/.profile.d/$BUILDPACK_NAME.sh
-export PATH="${PATH//$BUILD_DIR//app}:\$PATH"
-export LD_LIBRARY_PATH="\$LD_LIBRARY_PATH:${LD_LIBRARY_PATH//$BUILD_DIR//app}"
-export LIBRARY_PATH="\$LIBRARY_PATH:${LIBRARY_PATH//$BUILD_DIR//app}"
-export PKG_CONFIG_PATH="\$PKG_CONFIG_PATH:${PKG_CONFIG_PATH//$BUILD_DIR//app}"
-export CPPPATH="\$CPPPATH:${CPPPATH//$BUILD_DIR//app}"
-export CPATH="\$CPATH:${CPATH//$BUILD_DIR//app}"
+cat <<'EOF' > $BUILD_DIR/.profile.d/jemalloc.sh
+export PATH="$PATH:/app/vendor/jemalloc/bin"
+
+# Configure LD_PRELOAD when JEMALLOC_ENABLED is set to "true". Setting this can
+# be tricky for people and it occasionally changes with new versions.
+if [ "$JEMALLOC_ENABLED" = 'true' ]; then
+  export LD_PRELOAD="/app/vendor/jemalloc/lib/libjemalloc.so $LD_PRELOAD"
+fi
 EOF
