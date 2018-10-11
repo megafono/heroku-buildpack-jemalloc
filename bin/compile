@@ -11,18 +11,27 @@ ENV_DIR=$3
 version="5.1.0"
 
 # Read version from configured JEMALLOC_VERSION
-if [ -f $ENV_DIR/JEMALLOC_VERSION ]; then
-  version=$(cat $ENV_DIR/JEMALLOC_VERSION)
+# if [ -f $ENV_DIR/JEMALLOC_VERSION ]; then
+  # version=$(cat $ENV_DIR/JEMALLOC_VERSION)
+# fi
+
+tar_dist=jemalloc-$version.tar.bz2
+
+[ ! -d ${CACHE_DIR} ] && mkdir -p ${CACHE_DIR}
+
+# Download jemalloc if not in cache
+if [ ! -f ${CACHE_DIR}/${tar_dist} ]; then
+  url="https://github.com/megafono/heroku-buildpack-jemalloc/releases/download/$STACK/$tar_dist"
+  echo -n "-----> Downloading ${tar_dist}....."
+  curl --silent --location $url > ${CACHE_DIR}/${tar_dist}
+
+  echo " done"
 fi
 
-url="https://github.com/megafono/heroku-buildpack-jemalloc/releases/download/$STACK/jemalloc-$version.tar.bz2"
+echo -n "-----> Installing jemalloc"
 dest="$BUILD_DIR/vendor/jemalloc"
-
-echo "-----> Vendoring jemalloc $version"
-echo "       Fetching $url"
-
 mkdir -p $dest
-curl -sL $url | tar -C $dest -xj
+tar -xjf ${CACHE_DIR}/${tar_dist} -C $dest
 
 echo "-----> Building runtime environment"
 mkdir -p $BUILD_DIR/.profile.d
