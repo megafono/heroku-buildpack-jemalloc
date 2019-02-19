@@ -22,7 +22,7 @@ tar_dist=jemalloc-$version.tar.bz2
 # Download jemalloc if not in cache
 if [ ! -f ${CACHE_DIR}/${tar_dist} ]; then
   url="https://github.com/megafono/heroku-buildpack-jemalloc/releases/download/$STACK/$tar_dist"
-  echo -n "-----> Downloading ${tar_dist}....."
+  echo -n "-----> Downloading ${url}....."
   curl --silent --location $url > ${CACHE_DIR}/${tar_dist}
 
   echo " done"
