@@ -1,3 +1,7 @@
+# this repo is old and out of date
+
+https://github.com/gaffneyc/heroku-buildpack-jemalloc/ is more recently updated, I'd start by looking there.
+
 # heroku-buildpack-jemalloc
 
 [jemalloc](http://jemalloc.net/) is a general purpose malloc implementation
